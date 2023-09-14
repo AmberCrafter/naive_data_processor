@@ -1,0 +1,32 @@
+[datetime]
+header = "datetime_lst"
+
+[temperature]
+header = ["temperature"]
+
+[humidity]
+header = ["humidity"]
+
+[pressure]
+header = ["pressure"]
+
+[windspeed]
+header = ["windspeed"]
+
+[winddirection]
+header = ["winddirection"]
+
+[rainfull]
+header = ["rainfull"]
+
+[shortwavedown]
+header = ["radiation"]
+
+# [shortwaveup]
+# header = ["shortwaveup"]
+
+# [longwavedown]
+# header = ["longwavedown"]
+
+# [longwaveup]
+# header = ["longwaveup"]

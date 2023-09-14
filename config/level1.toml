@@ -1,0 +1,49 @@
+# # format
+# [$parameter]
+# upper = f32
+# lower = f32
+# diff = [{duration: usize, value: f32},...]
+# condition = {valid: [$header_name], nonezero: [$header_name]}
+
+# support parameter:
+#   temperature
+#   humidity
+#   pressure
+#   windspeed
+#   winddirection
+#   rainfull
+#   shortwavedown
+#   shortwaveup
+#   longwavedown
+#   longwaveup
+
+# duration unit: second
+
+[temperature]
+upper = 45
+lower = 0
+diff = [{duration = 1, value = 0.3}]
+
+[humidity]
+upper = 100
+lower = 0
+diff = [{duration = 1, value = 5}]
+
+[pressure]
+upper = 1300
+lower = 900
+diff = [{duration = 1, value = 1}]
+
+[windspeed]
+upper = 20
+lower = 0
+
+[winddirection]
+upper = 360
+lower = 0
+condition = {valid = ["windspeed"]}
+
+[rainfull]
+upper = 10
+lower = 0
+
