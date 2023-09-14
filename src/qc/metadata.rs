@@ -24,12 +24,13 @@ pub enum Parameter {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HeaderInner {
-    header: Option<String>
+    header: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HeaderVecInner {
-    header: Option<Vec<String>>
+    header: Option<Vec<String>>,
+    primary: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,9 +86,6 @@ impl Header {
         let config;
         get_config!(config, HEADER_CONFIG_PATH, Header);
 
-        if let Some(idx) = Self::index(Parameter::Datetime, header) {
-            return Some((Parameter::Datetime, idx));
-        }
         if let Some(idx) = Self::index(Parameter::Temperature, header) {
             return Some((Parameter::Temperature, idx));
         }
@@ -117,6 +115,9 @@ impl Header {
         }
         if let Some(idx) = Self::index(Parameter::LongWaveUp, header) {
             return Some((Parameter::LongWaveUp, idx));
+        }
+        if let Some(idx) = Self::index(Parameter::Datetime, header) {
+            return Some((Parameter::Datetime, idx));
         }
         None
     }
@@ -168,17 +169,17 @@ impl Data {
 
     pub fn set_invalid(&mut self, parameter: Parameter) {
         match parameter {
-            Parameter::Datetime => {},
-            Parameter::Temperature => self.temperature.iter_mut().for_each(|e| *e=f32::NAN),
-            Parameter::Humidity => self.humidity.iter_mut().for_each(|e| *e=f32::NAN),
-            Parameter::Pressure => self.pressure.iter_mut().for_each(|e| *e=f32::NAN),
-            Parameter::Windspeed => self.windspeed.iter_mut().for_each(|e| *e=f32::NAN),
-            Parameter::WindDirection => self.winddirection.iter_mut().for_each(|e| *e=f32::NAN),
-            Parameter::Rainfall => self.rainfull.iter_mut().for_each(|e| *e=f32::NAN),
-            Parameter::ShortWaveDown => self.shortwavedown.iter_mut().for_each(|e| *e=f32::NAN),
-            Parameter::ShortWaveUp => self.shortwaveup.iter_mut().for_each(|e| *e=f32::NAN),
-            Parameter::LongWaveDown => self.longwavedown.iter_mut().for_each(|e| *e=f32::NAN),
-            Parameter::LongWaveUp => self.longwaveup.iter_mut().for_each(|e| *e=f32::NAN),
+            Parameter::Datetime => {}
+            Parameter::Temperature => self.temperature.iter_mut().for_each(|e| *e = f32::NAN),
+            Parameter::Humidity => self.humidity.iter_mut().for_each(|e| *e = f32::NAN),
+            Parameter::Pressure => self.pressure.iter_mut().for_each(|e| *e = f32::NAN),
+            Parameter::Windspeed => self.windspeed.iter_mut().for_each(|e| *e = f32::NAN),
+            Parameter::WindDirection => self.winddirection.iter_mut().for_each(|e| *e = f32::NAN),
+            Parameter::Rainfall => self.rainfull.iter_mut().for_each(|e| *e = f32::NAN),
+            Parameter::ShortWaveDown => self.shortwavedown.iter_mut().for_each(|e| *e = f32::NAN),
+            Parameter::ShortWaveUp => self.shortwaveup.iter_mut().for_each(|e| *e = f32::NAN),
+            Parameter::LongWaveDown => self.longwavedown.iter_mut().for_each(|e| *e = f32::NAN),
+            Parameter::LongWaveUp => self.longwaveup.iter_mut().for_each(|e| *e = f32::NAN),
         }
     }
 }
@@ -239,35 +240,48 @@ pub fn read_data(path: PathBuf) -> Vec<Data> {
             if let Ok(row) = line {
                 let mut data = Data::default();
                 for (val, key) in row.split(",").zip(header.clone()) {
-                    println!("{key:?}:{val:?}");
-                    match &key.trim().to_lowercase()[..] {
-                        "datetime" => data_parser!(data, val, datetime),
-                        "datetimelst" => data_parser!(data, val, datetime),
-                        "datetime_lst" => data_parser!(data, val, datetime),
-                        "temperature" => {
-                            data_parser!(data, val, vector, f32, temperature, f32::NAN)
+                    // println!("{key:?}:{val:?}");
+
+                    if let Some((class, _)) = Header::find(&key.trim().to_lowercase()[..]) {
+                        // println!("{key:?}:{class:?}");
+                        match class {
+                            Parameter::Datetime => data_parser!(data, val, datetime),
+                            Parameter::Temperature => {
+                                data_parser!(data, val, vector, f32, temperature, f32::NAN)
+                            },
+                            Parameter::Humidity => {
+                                data_parser!(data, val, vector, f32, humidity, f32::NAN)
+                            },
+                            Parameter::Pressure => {
+                                data_parser!(data, val, vector, f32, pressure, f32::NAN)
+                            },
+                            Parameter::Windspeed => {
+                                data_parser!(data, val, vector, f32, windspeed, f32::NAN)
+                            },
+                            Parameter::WindDirection => {
+                                data_parser!(data, val, vector, f32, winddirection, f32::NAN)
+                            },
+                            Parameter::Rainfall => {
+                                data_parser!(data, val, vector, f32, rainfull, f32::NAN)
+                            },
+                            Parameter::ShortWaveDown => {
+                                data_parser!(data, val, vector, f32, shortwavedown, f32::NAN)
+                            },
+                            Parameter::ShortWaveUp => {
+                                data_parser!(data, val, vector, f32, shortwaveup, f32::NAN)
+                            },
+                            Parameter::LongWaveDown => {
+                                data_parser!(data, val, vector, f32, longwavedown, f32::NAN)
+                            },
+                            Parameter::LongWaveUp => {
+                                data_parser!(data, val, vector, f32, longwaveup, f32::NAN)
+                            },
                         }
-                        "humidity" => data_parser!(data, val, vector, f32, humidity, f32::NAN),
-                        "pressure" => data_parser!(data, val, vector, f32, pressure, f32::NAN),
-                        "windspeed" => data_parser!(data, val, vector, f32, windspeed, f32::NAN),
-                        "winddirection" => {
-                            data_parser!(data, val, vector, f32, winddirection, f32::NAN)
-                        }
-                        "rainfull" => data_parser!(data, val, vector, f32, rainfull, f32::NAN),
-                        "radiation" => {
-                            data_parser!(data, val, vector, f32, shortwavedown, f32::NAN)
-                        }
-                        "shortwavedown" => {
-                            data_parser!(data, val, vector, f32, shortwavedown, f32::NAN)
-                        }
-                        "shortwaveup" => {
-                            data_parser!(data, val, vector, f32, shortwaveup, f32::NAN)
-                        }
-                        "longwavedown" => {
-                            data_parser!(data, val, vector, f32, longwavedown, f32::NAN)
-                        }
-                        "longwaveup" => data_parser!(data, val, vector, f32, longwaveup, f32::NAN),
-                        _ => {}
+                    } else {
+                        println!(
+                            "Error: {:?} not exist in header list",
+                            &key.trim().to_lowercase()[..]
+                        );
                     }
                 }
 
