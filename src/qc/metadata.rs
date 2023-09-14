@@ -62,6 +62,24 @@ macro_rules! option_get_index {
     };
 }
 
+macro_rules! header_to_vec {
+    ($vec: tt, $config: tt, $target: tt) => {
+        if let Some(inner) = $config.$target {
+            if let Some(arr) = inner.header {
+                $vec.push(arr);
+            }
+        }
+    };
+
+    ($vec: tt, $config: tt, $target: tt, extend) => {
+        if let Some(inner) = $config.$target {
+            if let Some(arr) = inner.header {
+                $vec.extend(arr);
+            }
+        }
+    };
+}
+
 impl Header {
     pub fn index(parameter: Parameter, header: &str) -> Option<usize> {
         let config;
@@ -120,6 +138,27 @@ impl Header {
             return Some((Parameter::Datetime, idx));
         }
         None
+    }
+
+    pub fn gen_header() -> Vec<String> {
+        let config;
+        get_config!(config, HEADER_CONFIG_PATH, Header);
+
+        let mut res = Vec::new();
+
+        header_to_vec!(res, config, datetime);
+        header_to_vec!(res, config, temperature, extend);
+        header_to_vec!(res, config, humidity, extend);
+        header_to_vec!(res, config, pressure, extend);
+        header_to_vec!(res, config, windspeed, extend);
+        header_to_vec!(res, config, winddirection, extend);
+        header_to_vec!(res, config, rainfull, extend);
+        header_to_vec!(res, config, shortwavedown, extend);
+        header_to_vec!(res, config, shortwaveup, extend);
+        header_to_vec!(res, config, longwavedown, extend);
+        header_to_vec!(res, config, longwaveup, extend);
+        res.push("flag".to_string());        
+        res
     }
 }
 

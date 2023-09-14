@@ -5,16 +5,16 @@ use std::{rc::Rc, cell::RefCell, error::Error, path::Path, fs::File, io::{LineWr
 
 use clap::Parser;
 
-use crate::{qc::metadata::read_data, utils::cli::Cli};
+use crate::{qc::metadata::{read_data, Header}, utils::cli::Cli};
 
 fn main() -> Result<(), Box<dyn Error + 'static>> {
-  // let mut args = Cli::parse();
-  // println!("cli args: {:?}", args);
-  // let mut data = read_data(args.iuput_file);
-  // let qc_level = args.level.unwrap_or(usize::MAX);
+  let mut args = Cli::parse();
+  println!("cli args: {:?}", args);
+  let mut data = read_data(args.iuput_file);
+  let qc_level = args.level.unwrap_or(usize::MAX);
 
-  let mut data = read_data(Path::new("./data/data.csv").to_path_buf());
-  println!("{:#?}", data);
+  // let mut data = read_data(Path::new("./data/data.csv").to_path_buf());
+  // println!("{:#?}", data);
 
   let qc_level = usize::MAX;
 
@@ -29,11 +29,24 @@ fn main() -> Result<(), Box<dyn Error + 'static>> {
   println!("Level: {:?}\tAll pass: {:?}", 1, all_pass);
   // println!("Data: {:?}", data);
 
-  let file = File::create("./data/result.csv")?;
+  // let file = File::create("./data/result.csv")?;
+  let file = File::create(args.output_file)?;
+  let errfile = File::create(args.error_file.unwrap_or("./data/error.csv".into()))?;
   let mut file_writer = LineWriter::new(file);
+  let mut errfile_writer = LineWriter::new(errfile);
+  let header = Header::gen_header();
+  let buf = header.join(",");
+  file_writer.write_all(buf.as_bytes())?;
+  file_writer.write_all(b"\n")?;
+  errfile_writer.write_all(buf.as_bytes())?;
+  errfile_writer.write_all(b"\n")?;
   for ele in data {
-    if ele.flag.bits() > 0 {println!("{:?}", ele.datetime);}
     let buf = ele.to_vec().join(",");
+    if ele.flag.bits() > 0 {
+      // println!("{:?}", ele.datetime);
+      errfile_writer.write_all(buf.as_bytes())?;
+      errfile_writer.write_all(b"\n")?;
+    }
     file_writer.write_all(buf.as_bytes())?;   
     file_writer.write_all(b"\n")?;   
   }
@@ -41,9 +54,6 @@ fn main() -> Result<(), Box<dyn Error + 'static>> {
 
   Ok(())
 }
-
-
-
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct TreeNode {

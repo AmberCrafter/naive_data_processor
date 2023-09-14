@@ -1,0 +1,10 @@
+datetime_lst,temperature,humidity,pressure,windspeed,winddirection,rainfull,radiation,flag
+2023-08-12 12:39:00,NaN,NaN,NaN,NaN,NaN,NaN,739.4563,,,,1
+2023-08-12 12:40:00,NaN,NaN,NaN,NaN,NaN,NaN,797.5996,,,,1
+2023-08-12 12:41:00,NaN,NaN,NaN,NaN,NaN,NaN,743.73,,,,1
+2023-08-12 12:42:00,NaN,NaN,NaN,NaN,NaN,NaN,763.8316,,,,1
+2023-08-12 12:43:00,NaN,NaN,NaN,NaN,NaN,NaN,847.0938,,,,1
+2023-08-12 12:44:00,NaN,NaN,NaN,NaN,NaN,NaN,722.0657,,,,1
+2023-08-12 12:45:00,NaN,NaN,NaN,NaN,NaN,NaN,594.3511,,,,1
+2023-08-12 12:46:00,NaN,NaN,NaN,NaN,NaN,NaN,517.2299,,,,1
+2023-08-12 12:47:00,NaN,NaN,NaN,NaN,NaN,NaN,543.6027,,,,1
