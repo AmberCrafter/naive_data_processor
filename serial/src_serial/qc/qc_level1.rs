@@ -1,6 +1,8 @@
 
 use serde_derive::{Deserialize, Serialize};
 use std::cmp::Ordering;
+use std::collections::VecDeque;
+use chrono::NaiveDateTime;
 
 // #[macro_use]
 // use crate::qc;
@@ -132,12 +134,51 @@ macro_rules! consist_check {
                         let mut cur;
                         while $block_data[left].$target[column]==f32::NAN {left+=1;}
                         cur = left;
-                        let interval = ($block_data[cur].datetime - $block_data[left].datetime).num_seconds();
+                        let mut interval;
                         let mut diff_val;
+                        let mut max_queue: VecDeque<(NaiveDateTime, _)> = VecDeque::new();  // (time, val)
+                        let mut min_queue: VecDeque<(NaiveDateTime, _)> = VecDeque::new();  // (time, val)
+                        let (mut cur_max, mut cur_min);
+                        max_queue.push_back(($block_data[cur].datetime, $block_data[cur].$target[column]));
+                        min_queue.push_back(($block_data[cur].datetime, $block_data[cur].$target[column]));
         
                         while cur<$block_data.len() {
+                            interval = ($block_data[cur].datetime - $block_data[left].datetime).num_seconds();
                             if (($block_data[cur].$target[column] == f32::NAN) || (interval < duration)) {cur+=1; continue}
-                            diff_val = ($block_data[cur].$target[column] - $block_data[left].$target[column]).abs();
+
+                            // max value
+                            while max_queue.len()>1 && ($block_data[cur].datetime - max_queue[0].0).num_seconds() > duration {
+                                max_queue.pop_front();
+                            }
+                            cur_max = max_queue[0].1;
+                            if cur_max < $block_data[cur].$target[column] {
+                                cur_max = $block_data[cur].$target[column];
+                                max_queue.clear();
+                                max_queue.push_back(($block_data[cur].datetime, cur_max));
+                            } else {
+                                while ($block_data[cur].datetime - max_queue[max_queue.len()-1].0).num_seconds() > duration ||  max_queue[max_queue.len()-1].1 < cur_max {
+                                    max_queue.pop_back();
+                                }
+                                max_queue.push_back(($block_data[cur].datetime, $block_data[cur].$target[column]));
+                            }
+
+                            // min value
+                            while min_queue.len()>1 && ($block_data[cur].datetime - min_queue[0].0).num_seconds() < duration {
+                                min_queue.pop_front();
+                            }
+                            cur_min = min_queue[0].1;
+                            if cur_min > $block_data[cur].$target[column] {
+                                cur_min = $block_data[cur].$target[column];
+                                min_queue.clear();
+                                min_queue.push_back(($block_data[cur].datetime, cur_min));
+                            } else {
+                                while ($block_data[cur].datetime - min_queue[min_queue.len()-1].0).num_seconds() > duration ||  min_queue[min_queue.len()-1].1 < cur_min {
+                                    min_queue.pop_back();
+                                }
+                                min_queue.push_back(($block_data[cur].datetime, $block_data[cur].$target[column]));
+                            }
+
+                            diff_val = ((cur_max - $block_data[cur].$target[column]).abs()).max(($block_data[cur].$target[column] - cur_min).abs());
                             if diff_val > (limit/duration as f32 * interval as f32) {
                                 $block_data[cur].$target[column] = f32::NAN;
                                 $block_data[cur].flag |= QCFlag::L1;

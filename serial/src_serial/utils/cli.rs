@@ -1,12 +1,12 @@
+use std::path::PathBuf;
 
-use chrono::NaiveDateTime;
 use clap::Parser;
 
 #[derive(Debug,Parser)]
 pub struct Cli {
-    // pub time: NaiveDateTime,
-    // pub data: String,
-    pub format: String,
+    pub iuput_file: PathBuf,
+    pub output_file: PathBuf,
+    pub error_file:Option<PathBuf>,
     pub level: Option<usize>,
 }
 
@@ -15,4 +15,3 @@ pub struct Cli {
 //         Self { iuput_file: (), output_file: (), error_file: (), level: () }
 //     }
 // }
-

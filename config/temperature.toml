@@ -1,0 +1,8 @@
+[Global]
+max_level = 1
+
+[level_0]
+boundary = { min = 0.0, max = 50.0 }
+
+[level_1]
+consist = [{interval = 1, unit = "min", difference = 1.0}]

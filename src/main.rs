@@ -1,74 +1,98 @@
-mod qc;
 mod utils;
+mod lib;
 
-use std::{rc::Rc, cell::RefCell, error::Error, path::Path, fs::File, io::{LineWriter, Write}};
+use std::{error::Error, net::{TcpListener, TcpStream}, io::{BufReader, BufRead}, sync::{Arc, Mutex}};
 
+use chrono::NaiveDateTime;
 use clap::Parser;
 
-use crate::{qc::metadata::{read_data, Header}, utils::cli::Cli};
+use crate::{utils::cli::Cli, lib::{data_parser::{data_parser_format, data_parser, DataType}, qc_worker::QCworker}};
+
+fn event_handler(worker: Arc<Mutex<QCworker>>, data_format:&Vec<&str>, msg: &str) {
+  let data = if msg.starts_with("F=") {
+    // server register formation;
+    //  ex. F=0,xxx,xxx,xxx => format 0 (default pattern)
+    let offset = msg.find(|x| x==',').expect("Invalid data format, missing data");
+    data_parser_format(data_format, &msg[offset+1..])
+  } else {
+    data_parser(msg)
+  };
+  // println!("{:?}", data);
+
+  // get datetime
+  let mut datetime = NaiveDateTime::default();
+  for val in data.iter() {
+    match val.1 {
+      DataType::Datetime(dt) => {
+        datetime = dt.clone();
+        break;
+      }
+      _ => {}
+    }
+  }
+
+  if let Ok(mut w) = worker.lock() {
+    for (target, data) in data.iter() {
+      match data {
+        DataType::Datetime(_) => {},
+        DataType::Float(_) | DataType::Integer(_) => {
+          w.append(target, datetime, data.clone());
+        },
+        _ => {}
+      }
+    }
+    // w.show("temperature");
+    w.show("humidity");
+  }
+}
+
+fn connection_handler(stream: TcpStream, worker: Arc<Mutex<QCworker>>, data_format: &Vec<&str>) {
+  let mut buf_reader = BufReader::new(stream);
+
+  let mut buffer = String::new();
+  loop {
+      buffer.clear();
+      buf_reader.read_line(&mut buffer).expect("System Error");
+
+      match buffer.trim() {
+          "exit" => {
+              // stream.shutdown(std::net::Shutdown::Both).expect("Stream shutdown failed");
+              break;
+          },
+          msg => {
+              // println!("{}", msg);
+              event_handler(worker.clone(), data_format, msg);
+          }
+      }
+  }
+}
 
 fn main() -> Result<(), Box<dyn Error + 'static>> {
   let mut args = Cli::parse();
   println!("cli args: {:?}", args);
-  let mut data = read_data(args.iuput_file);
   let qc_level = args.level.unwrap_or(usize::MAX);
+  let data_format = args.format.split(',').collect::<Vec<_>>();
 
-  // let mut data = read_data(Path::new("./data/data.csv").to_path_buf());
-  // println!("{:#?}", data);
+  let qcworker = Arc::new(Mutex::new(QCworker::new(&data_format)));
 
-  let qc_level = usize::MAX;
-
-  let mut all_pass = true;
-  {
-    qc::qc_level0::main(&mut data, "./config/level0.toml")?;
-
-    if qc_level >= 1 {
-      all_pass &= qc::qc_level1::main(&mut data, "./config/level1.toml")?;
-    }
+  let listener = TcpListener::bind("127.0.0.1:12345")?;
+  for stream in listener.incoming() {
+      let stream = stream.unwrap();
+      connection_handler(stream, qcworker.clone(), &data_format);
   }
-  println!("Level: {:?}\tAll pass: {:?}", 1, all_pass);
-  // println!("Data: {:?}", data);
 
-  // let file = File::create("./data/result.csv")?;
-  let file = File::create(args.output_file)?;
-  let errfile = File::create(args.error_file.unwrap_or("./data/error.csv".into()))?;
-  let mut file_writer = LineWriter::new(file);
-  let mut errfile_writer = LineWriter::new(errfile);
-  let header = Header::gen_header();
-  let buf = header.join(",");
-  file_writer.write_all(buf.as_bytes())?;
-  file_writer.write_all(b"\n")?;
-  errfile_writer.write_all(buf.as_bytes())?;
-  errfile_writer.write_all(b"\n")?;
-  for ele in data {
-    let buf = ele.to_vec().join(",");
-    if ele.flag.bits() > 0 {
-      // println!("{:?}", ele.datetime);
-      errfile_writer.write_all(buf.as_bytes())?;
-      errfile_writer.write_all(b"\n")?;
-    }
-    file_writer.write_all(buf.as_bytes())?;   
-    file_writer.write_all(b"\n")?;   
-  }
-  file_writer.flush()?;
+  // let buffer = data_parser(&args.data);
 
   Ok(())
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct TreeNode {
-  pub val: i32,
-  pub left: Option<Rc<RefCell<TreeNode>>>,
-  pub right: Option<Rc<RefCell<TreeNode>>>,
-}
 
-impl TreeNode {
-  #[inline]
-  pub fn new(val: i32) -> Self {
-    TreeNode {
-      val,
-      left: None,
-      right: None
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn testcase1() {
+        let qc = "1234,qwer";
+        // println!("{:?}", qc.split_at(qc.find(|x|x==',').unwrap()+1));
+        println!("{:?}", &qc[4..]);
     }
-  }
 }
