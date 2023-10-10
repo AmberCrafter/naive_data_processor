@@ -33,17 +33,3 @@ cargo run datetime,#{parameters_list}
 ```
 cargo run --bin client
 ```
-
-```toml
-[level_n]
-item: {
-    condition_1: value,
-    condition_2: value
-}
-
-```
-
-
-Todo:
- - Summery flow
- - Sample
