@@ -86,7 +86,6 @@ fn main() -> Result<(), Box<dyn Error + 'static>> {
   Ok(())
 }
 
-
 #[cfg(test)]
 mod tests {
     #[test]

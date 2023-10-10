@@ -1,8 +1,5 @@
 use std::{net::{TcpListener, TcpStream}, error::Error, io::{BufReader, BufRead}};
 
-
-
-
 fn connection_handler(stream: TcpStream) {
     let mut buf_reader = BufReader::new(stream);
 
