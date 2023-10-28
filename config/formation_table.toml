@@ -1,0 +1,12 @@
+[formations]
+F0 = [
+    "temperature",
+    "humidity",
+]
+
+F1 = [
+    "datetime",
+    "temperature",
+    "humidity",
+]
+

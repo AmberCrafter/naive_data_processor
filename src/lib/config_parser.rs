@@ -72,7 +72,7 @@ impl QCConfig {
         let data; 
         get_config!(data, path, Table);
 
-        println!("{data:?}");
+        // println!("{data:?}");
 
         let metadata = Meatadata { max_level: data["Global"]["max_level"].as_integer().unwrap() as u64};
         let mut levels = Vec::new();

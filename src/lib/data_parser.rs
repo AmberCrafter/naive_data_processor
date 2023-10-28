@@ -10,11 +10,11 @@ pub enum DataType {
 }
 
 
-pub fn data_parser_format(data_format: &Vec<&str>, s: &str) -> Vec<(String, DataType)> {
+pub fn data_parser_format(data_format: &Vec<String>, s: &str) -> Vec<(String, DataType)> {
     let mut res = Vec::new();
     let ele = s.split(',').collect::<Vec<_>>();
 
-    for (&key, val) in data_format.iter().zip(ele) {
+    for (key, val) in data_format.iter().zip(ele) {
         match key.to_lowercase().as_str() {
             "datetime" | "datetimelst" | "datetimeutc" => {
                 res.push((
@@ -37,7 +37,7 @@ pub fn data_parser_format(data_format: &Vec<&str>, s: &str) -> Vec<(String, Data
     res
 }
 
-pub fn data_parser(s: &str) -> Vec<(String, DataType)> {
+pub fn data_parser_key_value(s: &str) -> Vec<(String, DataType)> {
     let mut res = Vec::new();
     let tmp = s.split(',').collect::<Vec<_>>();
 

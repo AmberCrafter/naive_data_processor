@@ -1,10 +1,21 @@
-use std::{collections::{HashMap, VecDeque}, fmt::Display};
 use bitflags::bitflags;
 use chrono::NaiveDateTime;
+use serde_derive::{Deserialize, Serialize};
+use std::{
+    collections::{HashMap, VecDeque},
+    fmt::Display, path::Path, net::{TcpListener, TcpStream}, error::Error, io::{BufReader, BufRead, Write, Read},
+};
+use toml::Table;
 
-use crate::lib::config_parser::QCConfig;
+use crate::{lib::{config_parser::QCConfig, data_parser::data_parser_format}, get_config};
 
-use super::{data_parser::DataType, ERROR, qc_module::{qc_boundary, qc_consist}};
+use super::{
+    data_parser::{DataType, data_parser_key_value},
+    qc_module::{qc_boundary, qc_consist},
+    ERROR,
+};
+
+type BoxError = Box<dyn Error + 'static>;
 
 const MAX_BUFFER_SIZE: usize = 512;
 
@@ -33,10 +44,10 @@ impl QCFlag {
     }
 
     pub fn set_bit(&mut self, index: usize) {
-        *self.0.bits_mut() |= 1<<index;
+        *self.0.bits_mut() |= 1 << index;
     }
 
-    pub fn clear_all(&mut self){
+    pub fn clear_all(&mut self) {
         *self.0.bits_mut() = 0;
     }
 
@@ -53,11 +64,31 @@ struct WorkerStatus<T> {
     flag: QCFlag,
 }
 
+#[derive(Debug)]
 pub struct QCworker {
+    formation_table: HashMap<String, Vec<String>>,
     map: HashMap<String, WorkerStatus<DataType>>,
 }
 
 impl WorkerStatus<DataType> {
+    pub fn new(parameter: &str) -> Self {
+        WorkerStatus {
+            config: QCConfig::new(&format!("config/{}.toml", parameter)),
+            data: VecDeque::with_capacity(MAX_BUFFER_SIZE),
+            status: QCStatus::Init,
+            flag: QCFlag::new(),
+        }
+    }
+
+    pub fn new_with_size(parameter: &str, size: usize) -> Self {
+        WorkerStatus {
+            config: QCConfig::new(&format!("config/{}.toml", parameter)),
+            data: VecDeque::with_capacity(size),
+            status: QCStatus::Init,
+            flag: QCFlag::new(),
+        }
+    }
+
     pub fn clean_flag(&mut self) {
         self.flag.clear_all();
     }
@@ -65,7 +96,7 @@ impl WorkerStatus<DataType> {
     pub fn qc_handle(&mut self, datetime: NaiveDateTime, data: DataType) {
         for level in 0..=self.config.max_level() {
             let level_pattern = self.config.members_mut(level);
-            
+
             if let Some(conf) = &level_pattern.boundary {
                 if !qc_boundary::main(conf, &data) {
                     self.data.push_back((datetime, DataType::NULL));
@@ -86,22 +117,10 @@ impl WorkerStatus<DataType> {
     }
 }
 
-
 impl QCworker {
-    pub fn new<S: AsRef<str> + Display>(names: &[S]) -> Self {
-        let mut map = HashMap::new();
-        for name in names {
-            if &name.to_string()[..] == "datetime" {continue;}
-            map.insert(name.to_string(), WorkerStatus { 
-                config: QCConfig::new(&format!("config/{}.toml", name)), 
-                data: VecDeque::with_capacity(MAX_BUFFER_SIZE), 
-                status: QCStatus::Init,
-                flag: QCFlag::new(),
-            });
-        }
-        QCworker { 
-            map
-        }
+    pub fn new(formation_table: HashMap<String, Vec<String>>) -> Self {
+        let map = HashMap::new();
+        QCworker { formation_table, map }
     }
 
     fn change_status(&mut self, target: String, status: QCStatus) -> Result<(), ERROR> {
@@ -111,17 +130,16 @@ impl QCworker {
         Ok(())
     }
 
-    pub fn append<S: AsRef<str> + Display>(&mut self, target: S, dateitme: NaiveDateTime, data: DataType) {
-        let mut entry = self.map.entry(target.to_string()).or_insert(
-            WorkerStatus { 
-                config: QCConfig::new(&format!("config/{}.toml", target)), 
-                data: VecDeque::with_capacity(MAX_BUFFER_SIZE), 
-                status: QCStatus::Init,
-                flag: QCFlag::new(),
-            }
-        );
+    pub fn append<S: AsRef<str> + Display>(
+        &mut self,
+        target: S,
+        datetime: NaiveDateTime,
+        data: DataType,
+    ) {
+        let mut entry = self.map.entry(target.to_string())
+            .or_insert(WorkerStatus::new_with_size(target.as_ref(), MAX_BUFFER_SIZE));
         entry.clean_flag();
-        entry.qc_handle(dateitme, data);
+        entry.qc_handle(datetime, data);
     }
 
     pub fn show<S: AsRef<str> + Display>(&mut self, target: S) {
@@ -130,5 +148,114 @@ impl QCworker {
         } else {
             println!("Not exist: {:}", target);
         }
+    }
+
+    fn data_parse(&mut self, raw_data: &str) -> Option<Vec<(String, DataType)>> {
+        if raw_data.starts_with("F") {
+            let (protocol, payload) = raw_data.split_at(raw_data.find(",").unwrap());
+            let payload = payload.strip_prefix(",").unwrap();
+            // println!("protocol: {:?}, payload: {:?}", protocol, payload);
+
+            let formation = self.formation_table.entry(protocol.to_string())
+                .or_insert({
+                    let path = "./config/formation_table.toml";
+                    let cfg;
+                    get_config!(cfg, path, FormationTable);
+                    if let Some(v) = get_formations_table(&cfg, protocol) {
+                        v
+                    } else {
+                        println!("TODO: return invalid information");
+                        return None;
+                    }
+                });
+            Some(data_parser_format(formation, payload))
+        } else {
+            Some(data_parser_key_value(raw_data))
+        }
+    }
+
+    pub fn run(&mut self) {
+        let mut buffer = String::new();
+        loop {
+            buffer.clear();
+            std::io::stdin().read_line(&mut buffer).unwrap();
+    
+            match buffer.as_str().trim() {
+                "exit" | "q" | "quit" => {
+                    break;
+                },
+                "" => {},
+                s => {self.handler(s);}
+            }
+        }
+    }
+
+    pub fn handler(&mut self, raw_data: &str) {
+        let current_datetime = chrono::offset::Local::now().naive_local();
+        if let Some(arr) = self.data_parse(raw_data) {
+            let datetime = if let Some(&(_, DataType::Datetime(dt))) = arr
+                .iter()
+                .filter(|(_, v)| {
+                    match v {
+                        DataType::Datetime(_) => true,
+                        _ => false
+                    }
+                }).next() 
+            {
+                dt
+            } else {
+                current_datetime
+            };
+
+            for (target, data) in arr {
+                self.append(target, datetime, data);
+            }
+        }
+    }
+}
+
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FormationTable {
+    formations: Table, // F{n} = []
+}
+
+pub fn get_formations_table(conf: &FormationTable, target: &str) -> Option<Vec<String>> {
+    let table = &conf.formations;
+    if table.contains_key(target) {
+        if let Some(raw) = table.get(target) {
+            if let Some(value) = raw.as_array() {
+                let buf = value
+                    .iter()
+                    .map(|x| x.as_str().unwrap().to_string())
+                    .collect();
+                return Some(buf);
+            }
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod test {
+    use crate::lib::data_parser::{data_parser_key_value, data_parser_format};
+
+    use super::*;
+    #[test]
+    fn case1() {
+        let path = "./config/formation_table.toml";
+        let cfg;
+        get_config!(cfg, path, FormationTable);
+
+        println!("{cfg:?}");
+    }
+
+    #[test]
+    fn case2() {
+        let mut qc = QCworker::new(HashMap::new());
+        qc.run();
+
+        qc.show("temperature");
+        qc.show("humidity");
     }
 }
