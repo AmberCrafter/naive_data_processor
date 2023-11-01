@@ -28,9 +28,12 @@ enum QCStatus {
     Stop,
 }
 
+// support 31 warning level, (0, 30)
+// lower 32 bit as warning bit
+// higher 32 bit as error bit, which set value as NAN
 bitflags! {
     #[derive(Debug, Clone, Copy, Default)]
-    pub struct QCFlag: u32 {
+    pub struct QCFlag: u64 {
         const Clear = 0b0000_0000;
         const L0 = 0b0000_0001;
         const L1 = 0b0000_0010;
@@ -57,7 +60,7 @@ impl QCFlag {
 }
 
 #[derive(Debug)]
-struct WorkerStatus<T> {
+struct WorkerInner<T> {
     config: QCConfig,
     data: VecDeque<(NaiveDateTime, T)>,
     status: QCStatus,
@@ -67,12 +70,12 @@ struct WorkerStatus<T> {
 #[derive(Debug)]
 pub struct QCworker {
     formation_table: HashMap<String, Vec<String>>,
-    map: HashMap<String, WorkerStatus<DataType>>,
+    map: HashMap<String, WorkerInner<DataType>>,
 }
 
-impl WorkerStatus<DataType> {
+impl WorkerInner<DataType> {
     pub fn new(parameter: &str) -> Self {
-        WorkerStatus {
+        WorkerInner {
             config: QCConfig::new(&format!("config/{}.toml", parameter)),
             data: VecDeque::with_capacity(MAX_BUFFER_SIZE),
             status: QCStatus::Init,
@@ -81,7 +84,7 @@ impl WorkerStatus<DataType> {
     }
 
     pub fn new_with_size(parameter: &str, size: usize) -> Self {
-        WorkerStatus {
+        WorkerInner {
             config: QCConfig::new(&format!("config/{}.toml", parameter)),
             data: VecDeque::with_capacity(size),
             status: QCStatus::Init,
@@ -112,6 +115,9 @@ impl WorkerStatus<DataType> {
                     return;
                 }
             }
+
+            // python module
+
         }
         self.data.push_back((datetime, data));
     }
@@ -137,7 +143,7 @@ impl QCworker {
         data: DataType,
     ) {
         let mut entry = self.map.entry(target.to_string())
-            .or_insert(WorkerStatus::new_with_size(target.as_ref(), MAX_BUFFER_SIZE));
+            .or_insert(WorkerInner::new_with_size(target.as_ref(), MAX_BUFFER_SIZE));
         entry.clean_flag();
         entry.qc_handle(datetime, data);
     }

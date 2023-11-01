@@ -25,7 +25,8 @@ struct Meatadata {
 #[derive(Debug, Default)]
 pub struct LevelPattern {
     pub boundary: Option<Boundary>,
-    pub consist: Option<Vec<Consist>>
+    pub consist: Option<Vec<Consist>>,
+    pub module: Option<Vec<ExtModule>>
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -39,6 +40,32 @@ pub struct ConsistConfig {
     pub interval: u64,
     pub unit: String,
     pub difference: f64
+}
+
+#[derive(Debug)]
+pub enum ModuleType {
+    Unknown = 0,
+    C = 1,
+    Python = 2,
+    Rust = 3,
+}
+
+impl<T: AsRef<str>> From<T> for ModuleType {
+    fn from(value: T) -> Self {
+        match value.as_ref().to_lowercase().as_str() {
+            "c" => ModuleType::C,
+            "python" => ModuleType::Python,
+            "rust" => ModuleType::Rust,
+            _ => ModuleType::Unknown
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ExtModule {
+    pub name: String,
+    pub module_type: ModuleType,
+    pub path: String,
 }
 
 #[derive(Debug)]
@@ -106,21 +133,40 @@ impl QCConfig {
             if let Some(values) = data["consist"].as_array() {
                 let mut buffer = Vec::new();
                 for value in values {
-                    if let Some(value) = value.as_table() {
+                    if let Some(val) = value.as_table() {
                         buffer.push(Consist {
                             config: ConsistConfig { 
-                                interval: value["interval"].as_integer().unwrap() as u64, 
-                                unit: value["unit"].as_str().unwrap().to_string(), 
-                                difference: value["difference"].as_float().unwrap(), 
+                                interval: val["interval"].as_integer().unwrap() as u64, 
+                                unit: val["unit"].as_str().unwrap().to_string(), 
+                                difference: val["difference"].as_float().unwrap(), 
                             },
                             upper: VecDeque::new(),
                             lower: VecDeque::new(),
-                        })
+                        });
                     }
                 }
                 res.consist = Some(buffer);
             }
         }
+
+        if data.contains_key("module") {
+            if let Some(values) = data["module"].as_array() {
+                let mut module_list = Vec::new();
+                for value in values {
+                    if let Some(val) = value.as_table() {
+                        module_list.push(ExtModule {
+                            name: val["name"].as_str().unwrap().to_string(),
+                            module_type: ModuleType::from(
+                                val["module_type"].as_str().unwrap()
+                            ), 
+                            path: val["path"].as_str().unwrap().to_string(),
+                        });
+                    }
+                }
+                res.module = Some(module_list);
+            }
+        }
+
         res
     }
 

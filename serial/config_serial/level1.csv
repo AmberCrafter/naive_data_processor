@@ -1,4 +1,0 @@
-index, level, major_type, minor_type, temperature, humidity
-i32, f32, string, string, f32, f32
-1, 1, boundary, lower, 20, 0
-2, 1, boundary, upper, 30, 100
