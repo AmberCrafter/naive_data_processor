@@ -9,7 +9,6 @@ pub enum DataType {
     NULL,
 }
 
-
 pub fn data_parser_format(data_format: &Vec<String>, s: &str) -> Vec<(String, DataType)> {
     let mut res = Vec::new();
     let ele = s.split(',').collect::<Vec<_>>();

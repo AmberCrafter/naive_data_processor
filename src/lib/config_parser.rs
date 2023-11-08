@@ -26,7 +26,8 @@ struct Meatadata {
 pub struct LevelPattern {
     pub boundary: Option<Boundary>,
     pub consist: Option<Vec<Consist>>,
-    pub module: Option<Vec<ExtModule>>
+    pub module: Option<Vec<ExtModule>>,
+    pub errorflag: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -66,6 +67,7 @@ pub struct ExtModule {
     pub name: String,
     pub module_type: ModuleType,
     pub path: String,
+    pub instance: Option<bool>,
 }
 
 #[derive(Debug)]
@@ -160,6 +162,7 @@ impl QCConfig {
                                 val["module_type"].as_str().unwrap()
                             ), 
                             path: val["path"].as_str().unwrap().to_string(),
+                            instance: None,
                         });
                     }
                 }

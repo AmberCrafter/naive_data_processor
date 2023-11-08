@@ -18,6 +18,7 @@ use super::{
 type BoxError = Box<dyn Error + 'static>;
 
 const MAX_BUFFER_SIZE: usize = 512;
+const ERROR_SHIFT: usize = 32;
 
 #[derive(Debug, Clone, Copy)]
 enum QCStatus {
@@ -35,11 +36,26 @@ bitflags! {
     #[derive(Debug, Clone, Copy, Default)]
     pub struct QCFlag: u64 {
         const Clear = 0b0000_0000;
-        const L0 = 0b0000_0001;
-        const L1 = 0b0000_0010;
+        const L0_Warn = 0b0000_0001;
+        const L1_Warn = 0b0000_0010;
+        const L2_Warn = 0b0000_0100;
+        const L3_Warn = 0b0000_1000;
+        const L4_Warn = 0b0001_0000;
+        const L5_Warn = 0b0010_0000;
+        const L6_Warn = 0b0100_0000;
+        const L7_Warn = 0b1000_0000;
         const Invalid = 0b1000_0000_0000_0000_0000_0000_0000_0000;
+        const L0_Error = 1<<(ERROR_SHIFT + 0);
+        const L1_Error = 1<<(ERROR_SHIFT + 1);
+        const L2_Error = 1<<(ERROR_SHIFT + 2);
+        const L3_Error = 1<<(ERROR_SHIFT + 3);
+        const L4_Error = 1<<(ERROR_SHIFT + 4);
+        const L5_Error = 1<<(ERROR_SHIFT + 5);
+        const L6_Error = 1<<(ERROR_SHIFT + 6);
+        const L7_Error = 1<<(ERROR_SHIFT + 7);
     }
 }
+
 
 impl QCFlag {
     pub fn new() -> Self {
@@ -102,21 +118,32 @@ impl WorkerInner<DataType> {
 
             if let Some(conf) = &level_pattern.boundary {
                 if !qc_boundary::main(conf, &data) {
-                    self.data.push_back((datetime, DataType::NULL));
+                    if let Some(errorflag) = &level_pattern.errorflag {
+                        if *errorflag {
+                            self.data.push_back((datetime, DataType::NULL));
+                            self.flag.set_bit(level << ERROR_SHIFT);
+                            return;
+                        }
+                    }
                     self.flag.set_bit(level);
-                    return;
                 }
             }
 
             if let Some(conf) = level_pattern.consist.as_mut() {
                 if !qc_consist::main(conf, &datetime, &data) {
-                    self.data.push_back((datetime, DataType::NULL));
+                    if let Some(errorflag) = &level_pattern.errorflag {
+                        if *errorflag {
+                            self.data.push_back((datetime, DataType::NULL));
+                            self.flag.set_bit(level << ERROR_SHIFT);
+                            return;
+                        }
+                    }
                     self.flag.set_bit(level);
-                    return;
                 }
             }
 
-            // python module
+            // module
+            if let Some(module_list) = level_pattern.module.as_mut() {}
 
         }
         self.data.push_back((datetime, data));

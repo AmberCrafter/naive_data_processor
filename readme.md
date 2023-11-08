@@ -33,3 +33,7 @@ cargo run datetime,#{parameters_list}
 ```
 cargo run --bin client
 ```
+
+
+Process flow
+data -> parsing -> getconfig -> load module -> QC -> save data
