@@ -32,8 +32,10 @@ fn main() -> Result<(), Box<dyn Error + 'static>> {
 
             qc.show_report();
 
-            qc.set_database("database/dummy.db");
-            qc.save().unwrap();
+            if opts.save {
+                qc.set_database("database");
+                qc.save().unwrap();
+            }
         }
     }
 

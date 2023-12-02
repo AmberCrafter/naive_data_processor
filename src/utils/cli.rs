@@ -26,4 +26,6 @@ pub struct QcOptions {
     pub protocol: Option<usize>,
     #[clap(short, long)]
     pub data: String,
+    #[clap(short, long, default_value_t = false)]
+    pub save: bool,
 }

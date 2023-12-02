@@ -9,6 +9,7 @@ pub mod data_parser;
 pub mod general_module;
 pub mod py_module;
 pub mod qc_worker;
+pub mod database;
 
 type ERROR = Box<dyn Error + 'static>;
 

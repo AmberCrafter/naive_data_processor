@@ -1,7 +1,7 @@
 use bitflags::bitflags;
 use chrono::NaiveDateTime;
 use serde_derive::{Deserialize, Serialize};
-use std::{collections::HashMap, error::Error, fmt::Display};
+use std::{collections::HashMap, fmt::Display, path::Path};
 use toml::Table;
 
 use crate::{
@@ -14,12 +14,9 @@ use super::{
     data_parser::{data_parser_key_value, DataType},
     general_module::GeneralModule,
     py_module::PythonModule,
-    ERROR,
+    ERROR, database::db_get,
 };
 
-type BoxError = Box<dyn Error + 'static>;
-
-const MAX_BUFFER_SIZE: usize = 512;
 const ERROR_SHIFT: usize = 32;
 
 #[derive(Debug, Clone, Copy)]
@@ -290,10 +287,12 @@ impl QCworker {
     }
 
     pub fn save(&self) -> sqlite::Result<()> {
-        if let Some(path) = &self.database {
-            let conn = sqlite::Connection::open(path)?;
-
+        if let Some(root) = &self.database {
             for (key, val) in self.get_report() {
+                let db_path = format!("{}/{}.db", root, val.0.format("%Y%m%d"));
+                let path = Path::new(&db_path);
+                let conn = db_get(path)?;
+                
                 let datetime = val.0.format("'%Y-%m-%d %H:%M:%S'").to_string();
                 let parameter = format!("'{key}'");
                 let flag = val.2.bits();

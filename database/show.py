@@ -1,4 +1,5 @@
 import sqlite3
+import datetime
 
 ROOT = "database"
 ROOT = "."
@@ -11,7 +12,7 @@ def dump_table(datatype: str):
     """
 
     print(query)
-    conn = sqlite3.connect(f"{ROOT}/dummy.db")
+    conn = sqlite3.connect(f"{ROOT}/{datetime.datetime.now().strftime('%Y%m%d')}.db")
     cur = conn.cursor()
     cur.execute(query)
     data = cur.fetchall()

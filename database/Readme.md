@@ -14,7 +14,7 @@
  - value:
     - float
  - flag:
-    - long
+    - unsiged big int
 
 2. StringTable
  - id: 
@@ -28,7 +28,7 @@
  - value:
     - text
  - flag:
-    - long
+    - unsiged big int
 
 3. IntegerTable
  - id: 
@@ -42,4 +42,4 @@
  - value:
     - integer
  - flag:
-    - long
+    - unsiged big int
