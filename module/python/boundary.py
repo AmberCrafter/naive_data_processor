@@ -15,7 +15,7 @@ def get_level_config(config, level):
 
 def run(level, datetime, data):
     print("Python: Hello Rust!")
-    print(f"level: {level}, datetime: {datetime}, data: {data + 1}")
+    print(f"level: {level}, datetime: {datetime}, data + 1: {data + 1}")
     return {
         # "res": 10,
         "res": False,

@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+import "google/protobuf/wrappers.proto";
+
+package qc;
+
+service QC {
+    rpc Send(SendRequest) returns (SendResponse);
+}
+
+message SendRequest {
+    string payload = 1;
+    google.protobuf.UInt32Value protocol = 2;  // Optional<u32>
+}
+
+message SendResponse {
+    string status = 1;
+}

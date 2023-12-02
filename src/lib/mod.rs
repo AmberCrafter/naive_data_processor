@@ -10,8 +10,9 @@ pub mod general_module;
 pub mod py_module;
 pub mod qc_worker;
 pub mod database;
+pub mod qc;
 
-type ERROR = Box<dyn Error + 'static>;
+pub type ERROR = Box<dyn Error + 'static>;
 
 pub trait QCModule {
     fn run(&self, level: usize, datetime: &NaiveDateTime, data: &DataType) -> Result<bool, ERROR>;
