@@ -1,22 +1,13 @@
 mod lib;
 mod utils;
 
-use std::{
-    error::Error,
-    io::{BufRead, BufReader},
-    net::{TcpListener, TcpStream},
-    sync::{Arc, Mutex}, collections::HashMap,
-};
+use std::{error::Error, collections::HashMap};
 
-use chrono::NaiveDateTime;
 use clap::Parser;
 
 use crate::{
-    lib::{
-        data_parser::{data_parser_key_value, data_parser_format, DataType},
-        qc_worker::{QCworker, FormationTable},
-    },
-    utils::cli::{Operations, Command::*},
+    lib::qc_worker::QCworker,
+    utils::cli::{Command::*, Operations},
 };
 
 fn main() -> Result<(), Box<dyn Error + 'static>> {
@@ -26,7 +17,7 @@ fn main() -> Result<(), Box<dyn Error + 'static>> {
         Daemon(opts) => {
             println!("daemon: {:?}", opts);
             todo!()
-        },
+        }
         Qc(opts) => {
             println!("qc: {:?}", opts);
             let mut qc = QCworker::new(HashMap::new());
@@ -45,7 +36,6 @@ fn main() -> Result<(), Box<dyn Error + 'static>> {
             qc.save().unwrap();
         }
     }
-
 
     Ok(())
 }

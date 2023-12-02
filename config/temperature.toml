@@ -4,12 +4,12 @@ max_level = 0
 [[level_0.module]]
 name = "Boundary test"
 module_type = "python"
-path = "./module/boundary.py"
+path = "./module/python/boundary.py"
 boundary = { min = 0.0, max = 50.0 }
 errorflag = true
 
 [[level_0.module]]
 name = "helloworld_2"
 module_type = "python"
-path = "./module/hello_world2.py"
+path = "./module/python/hello_world2.py"
 

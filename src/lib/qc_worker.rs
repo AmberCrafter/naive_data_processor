@@ -1,18 +1,20 @@
 use bitflags::bitflags;
 use chrono::NaiveDateTime;
 use serde_derive::{Deserialize, Serialize};
-use std::{
-    collections::{HashMap, VecDeque},
-    fmt::Display, path::{Path, PathBuf}, net::{TcpListener, TcpStream}, error::Error, io::{BufReader, BufRead, Write, Read},
-};
+use std::{collections::HashMap, error::Error, fmt::Display};
 use toml::Table;
 
-use crate::{lib::{config_parser::QCConfig, data_parser::data_parser_format}, get_config};
+use crate::{
+    get_config,
+    lib::{config_parser::QCConfig, data_parser::data_parser_format},
+};
 
 use super::{
-    data_parser::{DataType, data_parser_key_value},
-    // rs_module::{qc_boundary, qc_consist},
-    ERROR, config_parser::ModuleType, general_module::GeneralModule, py_module::PythonModule,
+    config_parser::ModuleType,
+    data_parser::{data_parser_key_value, DataType},
+    general_module::GeneralModule,
+    py_module::PythonModule,
+    ERROR,
 };
 
 type BoxError = Box<dyn Error + 'static>;
@@ -55,7 +57,6 @@ bitflags! {
         const L7_Error = 1<<(ERROR_SHIFT + 7);
     }
 }
-
 
 impl QCFlag {
     pub fn new() -> Self {
@@ -111,7 +112,9 @@ impl WorkerInner<DataType> {
             // module
             if let Some(module_list) = level_pattern.module.as_mut() {
                 for module in module_list {
-                    if module.module_type == ModuleType::Unknown {continue;}
+                    if module.module_type == ModuleType::Unknown {
+                        continue;
+                    }
                     let is_instance = module.instance.is_some();
                     if !is_instance {
                         module.instance = match module.module_type {
@@ -121,15 +124,15 @@ impl WorkerInner<DataType> {
                                 } else {
                                     None
                                 }
-                            },
+                            }
                             ModuleType::Python => {
                                 if let Ok(inner) = PythonModule::new(&module.name, &module.path) {
                                     Some(Box::new(inner))
                                 } else {
                                     None
                                 }
-                            },
-                            _ => continue // Never reach this arm
+                            }
+                            _ => continue, // Never reach this arm
                         };
                     }
 
@@ -165,7 +168,11 @@ impl WorkerInner<DataType> {
 impl QCworker {
     pub fn new(formation_table: HashMap<String, Vec<String>>) -> Self {
         let map = HashMap::new();
-        QCworker { formation_table, map , database: None }
+        QCworker {
+            formation_table,
+            map,
+            database: None,
+        }
     }
 
     fn change_status(&mut self, target: String, status: QCStatus) -> Result<(), ERROR> {
@@ -181,7 +188,9 @@ impl QCworker {
         datetime: NaiveDateTime,
         data: DataType,
     ) {
-        let mut entry = self.map.entry(target.to_string())
+        let mut entry = self
+            .map
+            .entry(target.to_string())
             .or_insert(WorkerInner::new(target.as_ref()));
         entry.clean_flag();
         entry.qc_handle(datetime, data);
@@ -205,18 +214,17 @@ impl QCworker {
             let payload = payload.strip_prefix(",").unwrap();
             // println!("protocol: {:?}, payload: {:?}", protocol, payload);
 
-            let formation = self.formation_table.entry(protocol.to_string())
-                .or_insert({
-                    let path = "./config/formation_table.toml";
-                    let cfg;
-                    get_config!(cfg, path, FormationTable);
-                    if let Some(v) = get_formations_table(&cfg, protocol) {
-                        v
-                    } else {
-                        println!("TODO: return invalid information");
-                        return None;
-                    }
-                });
+            let formation = self.formation_table.entry(protocol.to_string()).or_insert({
+                let path = "./config/formation_table.toml";
+                let cfg;
+                get_config!(cfg, path, FormationTable);
+                if let Some(v) = get_formations_table(&cfg, protocol) {
+                    v
+                } else {
+                    println!("TODO: return invalid information");
+                    return None;
+                }
+            });
             Some(data_parser_format(formation, payload))
         } else {
             Some(data_parser_key_value(raw_data))
@@ -228,13 +236,15 @@ impl QCworker {
         loop {
             buffer.clear();
             std::io::stdin().read_line(&mut buffer).unwrap();
-    
+
             match buffer.as_str().trim() {
                 "exit" | "q" | "quit" => {
                     break;
-                },
-                "" => {},
-                s => {self.handler(s);}
+                }
+                "" => {}
+                s => {
+                    self.handler(s);
+                }
             }
         }
     }
@@ -244,12 +254,11 @@ impl QCworker {
         if let Some(arr) = self.data_parse(raw_data) {
             let datetime = if let Some(&(_, DataType::Datetime(dt))) = arr
                 .iter()
-                .filter(|(_, v)| {
-                    match v {
-                        DataType::Datetime(_) => true,
-                        _ => false
-                    }
-                }).next() 
+                .filter(|(_, v)| match v {
+                    DataType::Datetime(_) => true,
+                    _ => false,
+                })
+                .next()
             {
                 dt
             } else {
@@ -257,7 +266,9 @@ impl QCworker {
             };
 
             for (target, data) in arr {
-                if let DataType::Datetime(_) = data {continue;}
+                if let DataType::Datetime(_) = data {
+                    continue;
+                }
                 self.append(target, datetime, data);
             }
         }
@@ -267,14 +278,10 @@ impl QCworker {
         let mut map = HashMap::new();
         for (key, val) in &self.map {
             if let Some(data) = &val.data {
-                map.insert(key.to_string(), (
-                    data.0.clone(),
-                    data.1.clone(),
-                    val.flag
-                ));
+                map.insert(key.to_string(), (data.0.clone(), data.1.clone(), val.flag));
             }
         }
-        
+
         map
     }
 
@@ -291,20 +298,20 @@ impl QCworker {
                 let parameter = format!("'{key}'");
                 let flag = val.2.bits();
                 match val.1 {
-                    DataType::Datetime(_) => {},
+                    DataType::Datetime(_) => {}
                     DataType::Integer(v) => {
                         let query = format!("INSERT INTO IntegerTable (datetime, parameter, value, flag) VALUES ({datetime}, {parameter}, {v}, {flag});");
                         conn.execute(query)?;
-                    },
+                    }
                     DataType::Float(v) => {
                         let query = format!("INSERT INTO FloatTable (datetime, parameter, value, flag) VALUES ({datetime}, {parameter}, {v}, {flag});");
                         conn.execute(query)?;
-                    },
+                    }
                     DataType::String(v) => {
                         let value = format!("'{v}'");
                         let query = format!("INSERT INTO TextrTable (datetime, parameter, value, flag) VALUES ({datetime}, {parameter}, {value}, {flag});");
                         conn.execute(query)?;
-                    },
+                    }
                     DataType::NULL => {}
                 }
             }
@@ -312,7 +319,6 @@ impl QCworker {
         Ok(())
     }
 }
-
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FormationTable {
@@ -337,7 +343,7 @@ pub fn get_formations_table(conf: &FormationTable, target: &str) -> Option<Vec<S
 
 #[cfg(test)]
 mod test {
-    use crate::lib::data_parser::{data_parser_key_value, data_parser_format};
+    use crate::lib::data_parser::{data_parser_format, data_parser_key_value};
 
     use super::*;
     #[test]

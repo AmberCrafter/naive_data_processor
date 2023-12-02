@@ -1,14 +1,14 @@
-use std::{error::Error, path::Path};
+use std::error::Error;
 
 use chrono::NaiveDateTime;
 
-use self::{general_module::GeneralModule, py_module::PythonModule, data_parser::DataType};
+use self::data_parser::DataType;
 
-pub mod general_module;
 pub mod config_parser;
 pub mod data_parser;
-pub mod qc_worker;
+pub mod general_module;
 pub mod py_module;
+pub mod qc_worker;
 
 type ERROR = Box<dyn Error + 'static>;
 

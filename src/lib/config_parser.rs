@@ -1,7 +1,6 @@
-use std::{path::Path, collections::VecDeque, fmt::Debug};
+use std::fmt::Debug;
 
-use chrono::NaiveDateTime;
-use serde_derive::{Serialize, Deserialize};
+use serde_derive::{Deserialize, Serialize};
 use toml::Table;
 
 use super::QCModule;
@@ -9,11 +8,9 @@ use super::QCModule;
 #[macro_export]
 macro_rules! get_config {
     ($config: expr, $path: path, $ret_type: ty) => {
-        let mut file = std::fs::File::open($path)
-            .expect("Can't open config file.");
+        let mut file = std::fs::File::open($path).expect("Can't open config file.");
         let mut contents = String::new();
-        std::io::Read::read_to_string(&mut file, &mut contents)
-            .expect("Failed to read file.");
+        std::io::Read::read_to_string(&mut file, &mut contents).expect("Failed to read file.");
 
         $config = toml::from_str::<$ret_type>(&contents).expect("Parsing config failed");
     };
@@ -21,7 +18,7 @@ macro_rules! get_config {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Meatadata {
-    max_level: u64
+    max_level: u64,
 }
 
 #[derive(Debug, Default)]
@@ -44,7 +41,7 @@ impl<T: AsRef<str>> From<T> for ModuleType {
             "c" => ModuleType::General,
             "rust" => ModuleType::General,
             "python" => ModuleType::Python,
-            _ => ModuleType::Unknown
+            _ => ModuleType::Unknown,
         }
     }
 }
@@ -67,19 +64,21 @@ impl Debug for (dyn QCModule + 'static) {
 #[derive(Debug)]
 pub struct QCConfig {
     metadata: Meatadata,
-    levels: Vec<LevelPattern>
+    levels: Vec<LevelPattern>,
 }
 
 impl QCConfig {
     pub fn new(path: &str) -> Self {
-        let data; 
+        let data;
         // println!("{path:?}");
 
         get_config!(data, path, Table);
 
         // println!("{data:?}");
 
-        let metadata = Meatadata { max_level: data["Global"]["max_level"].as_integer().unwrap() as u64};
+        let metadata = Meatadata {
+            max_level: data["Global"]["max_level"].as_integer().unwrap() as u64,
+        };
         let mut levels = Vec::new();
 
         for i in 0..=metadata.max_level {
@@ -95,10 +94,7 @@ impl QCConfig {
             }
         }
 
-        Self {
-            metadata,
-            levels,
-        }
+        Self { metadata, levels }
     }
 
     fn parse_level(data: &Table) -> LevelPattern {
@@ -111,9 +107,7 @@ impl QCConfig {
                     if let Some(val) = value.as_table() {
                         module_list.push(ExtModule {
                             name: val["name"].as_str().unwrap().to_string(),
-                            module_type: ModuleType::from(
-                                val["module_type"].as_str().unwrap()
-                            ), 
+                            module_type: ModuleType::from(val["module_type"].as_str().unwrap()),
                             path: val["path"].as_str().unwrap().to_string(),
                             instance: None,
                             errorflag: if let Some(toml::Value::Boolean(v)) = val.get("errorflag") {
@@ -143,7 +137,6 @@ impl QCConfig {
         &mut self.levels[level]
     }
 }
-
 
 #[cfg(test)]
 mod tests {
