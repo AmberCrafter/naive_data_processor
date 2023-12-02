@@ -21,10 +21,14 @@ path = "xxx"
 
 2. Write a module
 ```python
-def run(datetime: str, data: any):
+def run(level:int, datetime: str, data: any):
    ...
    return {
       "res": bool,
    }
+```
+
+```c
+int run(level: int, datetime: *char, data: *char);
 ```
 

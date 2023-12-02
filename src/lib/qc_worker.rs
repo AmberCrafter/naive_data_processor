@@ -3,7 +3,7 @@ use chrono::NaiveDateTime;
 use serde_derive::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, VecDeque},
-    fmt::Display, path::Path, net::{TcpListener, TcpStream}, error::Error, io::{BufReader, BufRead, Write, Read},
+    fmt::Display, path::{Path, PathBuf}, net::{TcpListener, TcpStream}, error::Error, io::{BufReader, BufRead, Write, Read},
 };
 use toml::Table;
 
@@ -11,8 +11,8 @@ use crate::{lib::{config_parser::QCConfig, data_parser::data_parser_format}, get
 
 use super::{
     data_parser::{DataType, data_parser_key_value},
-    qc_module::{qc_boundary, qc_consist},
-    ERROR,
+    // rs_module::{qc_boundary, qc_consist},
+    ERROR, config_parser::ModuleType, general_module::GeneralModule, py_module::PythonModule,
 };
 
 type BoxError = Box<dyn Error + 'static>;
@@ -78,7 +78,7 @@ impl QCFlag {
 #[derive(Debug)]
 struct WorkerInner<T> {
     config: QCConfig,
-    data: VecDeque<(NaiveDateTime, T)>,
+    data: Option<(NaiveDateTime, T)>,
     status: QCStatus,
     flag: QCFlag,
 }
@@ -87,22 +87,14 @@ struct WorkerInner<T> {
 pub struct QCworker {
     formation_table: HashMap<String, Vec<String>>,
     map: HashMap<String, WorkerInner<DataType>>,
+    database: Option<String>,
 }
 
 impl WorkerInner<DataType> {
     pub fn new(parameter: &str) -> Self {
         WorkerInner {
             config: QCConfig::new(&format!("config/{}.toml", parameter)),
-            data: VecDeque::with_capacity(MAX_BUFFER_SIZE),
-            status: QCStatus::Init,
-            flag: QCFlag::new(),
-        }
-    }
-
-    pub fn new_with_size(parameter: &str, size: usize) -> Self {
-        WorkerInner {
-            config: QCConfig::new(&format!("config/{}.toml", parameter)),
-            data: VecDeque::with_capacity(size),
+            data: None,
             status: QCStatus::Init,
             flag: QCFlag::new(),
         }
@@ -116,44 +108,64 @@ impl WorkerInner<DataType> {
         for level in 0..=self.config.max_level() {
             let level_pattern = self.config.members_mut(level);
 
-            if let Some(conf) = &level_pattern.boundary {
-                if !qc_boundary::main(conf, &data) {
-                    if let Some(errorflag) = &level_pattern.errorflag {
-                        if *errorflag {
-                            self.data.push_back((datetime, DataType::NULL));
-                            self.flag.set_bit(level << ERROR_SHIFT);
-                            return;
-                        }
-                    }
-                    self.flag.set_bit(level);
-                }
-            }
-
-            if let Some(conf) = level_pattern.consist.as_mut() {
-                if !qc_consist::main(conf, &datetime, &data) {
-                    if let Some(errorflag) = &level_pattern.errorflag {
-                        if *errorflag {
-                            self.data.push_back((datetime, DataType::NULL));
-                            self.flag.set_bit(level << ERROR_SHIFT);
-                            return;
-                        }
-                    }
-                    self.flag.set_bit(level);
-                }
-            }
-
             // module
-            if let Some(module_list) = level_pattern.module.as_mut() {}
+            if let Some(module_list) = level_pattern.module.as_mut() {
+                for module in module_list {
+                    if module.module_type == ModuleType::Unknown {continue;}
+                    let is_instance = module.instance.is_some();
+                    if !is_instance {
+                        module.instance = match module.module_type {
+                            ModuleType::General => {
+                                if let Ok(inner) = GeneralModule::new(&module.path) {
+                                    Some(Box::new(inner))
+                                } else {
+                                    None
+                                }
+                            },
+                            ModuleType::Python => {
+                                if let Ok(inner) = PythonModule::new(&module.name, &module.path) {
+                                    Some(Box::new(inner))
+                                } else {
+                                    None
+                                }
+                            },
+                            _ => continue // Never reach this arm
+                        };
+                    }
 
+                    // 規範 QCModule Interface
+                    if let Some(qc) = module.instance.as_ref() {
+                        let result = match qc.run(level, &datetime, &data) {
+                            Ok(status) => status,
+                            Err(_) => {
+                                // TODO recode error
+                                false
+                            }
+                        };
+
+                        if !result {
+                            // failed case
+                            if let Some(errorflag) = level_pattern.errorflag {
+                                if errorflag {
+                                    self.flag.set_bit(level + ERROR_SHIFT);
+                                    // self.data = Some((datetime, DataType::NULL));
+                                    // return;
+                                }
+                            }
+                            self.flag.set_bit(level);
+                        }
+                    }
+                }
+            }
         }
-        self.data.push_back((datetime, data));
+        self.data = Some((datetime, data));
     }
 }
 
 impl QCworker {
     pub fn new(formation_table: HashMap<String, Vec<String>>) -> Self {
         let map = HashMap::new();
-        QCworker { formation_table, map }
+        QCworker { formation_table, map , database: None }
     }
 
     fn change_status(&mut self, target: String, status: QCStatus) -> Result<(), ERROR> {
@@ -170,9 +182,13 @@ impl QCworker {
         data: DataType,
     ) {
         let mut entry = self.map.entry(target.to_string())
-            .or_insert(WorkerInner::new_with_size(target.as_ref(), MAX_BUFFER_SIZE));
+            .or_insert(WorkerInner::new(target.as_ref()));
         entry.clean_flag();
         entry.qc_handle(datetime, data);
+    }
+
+    pub fn set_database<S: AsRef<str> + Display>(&mut self, path: S) {
+        self.database = Some(path.to_string());
     }
 
     pub fn show<S: AsRef<str> + Display>(&mut self, target: S) {
@@ -241,9 +257,59 @@ impl QCworker {
             };
 
             for (target, data) in arr {
+                if let DataType::Datetime(_) = data {continue;}
                 self.append(target, datetime, data);
             }
         }
+    }
+
+    pub fn get_report(&self) -> HashMap<String, (NaiveDateTime, DataType, QCFlag)> {
+        let mut map = HashMap::new();
+        for (key, val) in &self.map {
+            if let Some(data) = &val.data {
+                map.insert(key.to_string(), (
+                    data.0.clone(),
+                    data.1.clone(),
+                    val.flag
+                ));
+            }
+        }
+        
+        map
+    }
+
+    pub fn show_report(&self) {
+        println!("{:#?}", self.get_report());
+    }
+
+    pub fn save(&self) -> sqlite::Result<()> {
+        if let Some(path) = &self.database {
+            let conn = sqlite::Connection::open(path)?;
+
+            for (key, val) in self.get_report() {
+                let datetime = val.0.format("'%Y-%m-%d %H:%M:%S'").to_string();
+                let parameter = format!("'{key}'");
+                let flag = val.2.bits();
+                match val.1 {
+                    DataType::Datetime(_) => {},
+                    DataType::Integer(v) => {
+                        let query = format!("INSERT INTO IntegerTable (datetime, parameter, value, flag) VALUES ({datetime}, {parameter}, {v}, {flag});");
+                        conn.execute(query)?;
+                    },
+                    DataType::Float(v) => {
+                        let query = format!("INSERT INTO FloatTable (datetime, parameter, value, flag) VALUES ({datetime}, {parameter}, {v}, {flag});");
+                        conn.execute(query)?;
+                    },
+                    DataType::String(v) => {
+                        let value = format!("'{v}'");
+                        let query = format!("INSERT INTO TextrTable (datetime, parameter, value, flag) VALUES ({datetime}, {parameter}, {value}, {flag});");
+                        conn.execute(query)?;
+                    },
+                    DataType::NULL => {}
+                }
+            }
+        }
+        Ok(())
     }
 }
 

@@ -13,6 +13,8 @@
     - text
  - value:
     - float
+ - flag:
+    - long
 
 2. StringTable
  - id: 
@@ -25,3 +27,19 @@
     - text
  - value:
     - text
+ - flag:
+    - long
+
+3. IntegerTable
+ - id: 
+    - integer 
+    - primary key 
+    - autoincrement
+ - datetime:
+    - text
+ - parameter:
+    - text
+ - value:
+    - integer
+ - flag:
+    - long

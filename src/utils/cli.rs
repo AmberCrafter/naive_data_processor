@@ -3,16 +3,27 @@ use chrono::NaiveDateTime;
 use clap::Parser;
 
 #[derive(Debug,Parser)]
-pub struct Cli {
-    // pub time: NaiveDateTime,
-    // pub data: String,
-    pub format: String,
-    pub level: Option<usize>,
+pub struct Operations {
+    #[clap(subcommand)]
+    pub command: Command,
 }
 
-// impl Default for Cli {
-//     fn default() -> Self {
-//         Self { iuput_file: (), output_file: (), error_file: (), level: () }
-//     }
-// }
+#[derive(Debug, Parser)]
+pub enum Command {
+    Daemon(DaemonOptions),
+    Qc(QcOptions),
+}
 
+#[derive(Debug, Parser)]
+pub struct DaemonOptions {
+    #[clap(long)]
+    pub port: Option<usize>,
+}
+
+#[derive(Debug, Parser)]
+pub struct QcOptions {
+    #[clap(short, long)]
+    pub protocol: Option<usize>,
+    #[clap(short, long)]
+    pub data: String,
+}

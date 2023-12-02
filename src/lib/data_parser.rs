@@ -9,6 +9,28 @@ pub enum DataType {
     NULL,
 }
 
+impl ToString for DataType {
+    fn to_string(&self) -> String {
+        match self {
+            DataType::Datetime(v) => {
+                v.format("%Y-%m-%dT%H:%M:%S").to_string()
+            },
+            DataType::Integer(v) => {
+                format!("{}", v)
+            },
+            DataType::Float(v) => {
+                format!("{}", v)
+            },
+            DataType::String(v) => {
+                v.to_owned()
+            },
+            DataType::NULL => {
+                "None".to_string()
+            }
+        }
+    }
+}
+
 pub fn data_parser_format(data_format: &Vec<String>, s: &str) -> Vec<(String, DataType)> {
     let mut res = Vec::new();
     let ele = s.split(',').collect::<Vec<_>>();

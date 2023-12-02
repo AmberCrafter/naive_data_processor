@@ -1,8 +1,10 @@
-use std::{path::Path, collections::VecDeque};
+use std::{path::Path, collections::VecDeque, fmt::Debug};
 
 use chrono::NaiveDateTime;
 use serde_derive::{Serialize, Deserialize};
 use toml::Table;
+
+use super::QCModule;
 
 #[macro_export]
 macro_rules! get_config {
@@ -24,39 +26,24 @@ struct Meatadata {
 
 #[derive(Debug, Default)]
 pub struct LevelPattern {
-    pub boundary: Option<Boundary>,
-    pub consist: Option<Vec<Consist>>,
     pub module: Option<Vec<ExtModule>>,
     pub errorflag: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Boundary {
-    pub max: f64,
-    pub min: f64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ConsistConfig {
-    pub interval: u64,
-    pub unit: String,
-    pub difference: f64
-}
-
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ModuleType {
     Unknown = 0,
-    C = 1,
+    General = 1,
     Python = 2,
-    Rust = 3,
 }
 
 impl<T: AsRef<str>> From<T> for ModuleType {
     fn from(value: T) -> Self {
         match value.as_ref().to_lowercase().as_str() {
-            "c" => ModuleType::C,
+            "general" => ModuleType::General,
+            "c" => ModuleType::General,
+            "rust" => ModuleType::General,
             "python" => ModuleType::Python,
-            "rust" => ModuleType::Rust,
             _ => ModuleType::Unknown
         }
     }
@@ -67,14 +54,14 @@ pub struct ExtModule {
     pub name: String,
     pub module_type: ModuleType,
     pub path: String,
-    pub instance: Option<bool>,
+    pub instance: Option<Box<dyn QCModule + 'static>>,
+    pub errorflag: bool,
 }
 
-#[derive(Debug)]
-pub struct Consist {
-    pub config: ConsistConfig,
-    pub upper: VecDeque<(NaiveDateTime, f64)>,
-    pub lower: VecDeque<(NaiveDateTime, f64)>,
+impl Debug for (dyn QCModule + 'static) {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("QCModule")
+    }
 }
 
 #[derive(Debug)]
@@ -83,22 +70,11 @@ pub struct QCConfig {
     levels: Vec<LevelPattern>
 }
 
-impl Consist {
-    pub fn interval_to_sec(&self) -> u64 {
-        let multi = match &self.config.unit.to_lowercase()[..] {
-            "m" | "min" | "minute" => 60,
-            "h" | "hr"  | "hour" => 60 * 60,
-            "d" | "day" => 24 * 60 * 60,
-            _ => 1
-        };
-
-        self.config.interval * multi
-    }
-}
-
 impl QCConfig {
     pub fn new(path: &str) -> Self {
         let data; 
+        // println!("{path:?}");
+
         get_config!(data, path, Table);
 
         // println!("{data:?}");
@@ -108,6 +84,12 @@ impl QCConfig {
 
         for i in 0..=metadata.max_level {
             let section = format!("level_{}", i);
+
+            if !data.contains_key(&section) {
+                // TODO: Record error
+                continue;
+            }
+
             if let Some(table) = data[&section].as_table() {
                 levels.push(QCConfig::parse_level(table));
             }
@@ -122,35 +104,6 @@ impl QCConfig {
     fn parse_level(data: &Table) -> LevelPattern {
         let mut res = LevelPattern::default();
 
-        if data.contains_key("boundary") {
-            if let Some(value) = data["boundary"].as_table() {
-                res.boundary = Some(Boundary { 
-                    max: value["max"].as_float().unwrap(), 
-                    min: value["min"].as_float().unwrap(), 
-                })
-            }
-        }
-
-        if data.contains_key("consist") {
-            if let Some(values) = data["consist"].as_array() {
-                let mut buffer = Vec::new();
-                for value in values {
-                    if let Some(val) = value.as_table() {
-                        buffer.push(Consist {
-                            config: ConsistConfig { 
-                                interval: val["interval"].as_integer().unwrap() as u64, 
-                                unit: val["unit"].as_str().unwrap().to_string(), 
-                                difference: val["difference"].as_float().unwrap(), 
-                            },
-                            upper: VecDeque::new(),
-                            lower: VecDeque::new(),
-                        });
-                    }
-                }
-                res.consist = Some(buffer);
-            }
-        }
-
         if data.contains_key("module") {
             if let Some(values) = data["module"].as_array() {
                 let mut module_list = Vec::new();
@@ -163,6 +116,11 @@ impl QCConfig {
                             ), 
                             path: val["path"].as_str().unwrap().to_string(),
                             instance: None,
+                            errorflag: if let Some(toml::Value::Boolean(v)) = val.get("errorflag") {
+                                *v
+                            } else {
+                                false
+                            },
                         });
                     }
                 }

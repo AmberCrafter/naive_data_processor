@@ -18,5 +18,7 @@ serde_derive = "1.0.179"
 chrono = "0.4.26"
 bitflags = "2.3.3"
 clap = {version = "4.3.21", features = ["derive"]}
-sqlite = "0.31.1"
+sqlite = "0.32.0"
 pyo3 = { version = "0.20.0", features = ["auto-initialize"]}
+libloading = "0.8.1"
+# rusqlite = "0.30.0"
