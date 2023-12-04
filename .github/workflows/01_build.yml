@@ -27,7 +27,7 @@ jobs:
           profile: minimal
           toolchain: stable
       
-      uses: NSCoder/rust-musl-action@v1.0.0
+      - uses: NSCoder/rust-musl-action@v1.0.0
       - name: Build Release
         run: |
               sudo apt-get install -y protobuf-compiler
