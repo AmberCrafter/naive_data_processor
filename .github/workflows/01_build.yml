@@ -27,10 +27,10 @@ jobs:
           profile: minimal
           toolchain: stable
       
+      uses: NSCoder/rust-musl-action@v1.0.0
       - name: Build Release
-        # uses: NSCoder/rust-musl-action@v1.0.0
         run: |
-              sudo apt-get install -y protobuf-compiler musl-tools
+              sudo apt-get install -y protobuf-compiler
               rustup target add x86_64-unknown-linux-musl
               cargo build -r --target x86_64-unknown-linux-musl
       
@@ -39,7 +39,7 @@ jobs:
         uses: actions/create-release@v1
         env: 
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
+        with: 
           target_name: v${{ github.ref }}
           release_name: Release ${{ github.ref }}
           draft: false
