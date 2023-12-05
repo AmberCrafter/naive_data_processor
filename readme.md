@@ -1,5 +1,5 @@
 # Usage
-build test 1
+build test 2
 
 ## Add QC config
 [Global]
