@@ -43,10 +43,12 @@ jobs:
 
       - name: Rust MUSL Builder
         uses: gmiam/rust-musl-action@master
-        # env:
-        #   PYO3_PYTHON:  ${{ steps.cp310.outputs.python-path }}
+        env:
+          RUSTFLAGS: "-C target-feature=-crt-static"
+          # PYO3_PYTHON:  ${{ steps.cp310.outputs.python-path }}
+
         with:
-          args: RUSTFLAGS="-C target-feature=-crt-static" cargo build --target $BUILD_TARGET --release
+          args: cargo build --target $BUILD_TARGET --release
 
       - name: Create Release
         id: create_release
