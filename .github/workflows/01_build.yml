@@ -45,7 +45,7 @@ jobs:
         uses: gmiam/rust-musl-action@master
         env:
           RUSTFLAGS: "-C target-feature=-crt-static"
-          PYO3_PYTHON:  ${{ steps.cp310.outputs.python-path }} /python3
+          PYO3_PYTHON:  ${{ steps.cp310.outputs.python-path }}
         with:
           args: cargo build --target $BUILD_TARGET --release
 
