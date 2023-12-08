@@ -41,6 +41,8 @@ jobs:
 
       - name: Rust MUSL Builder
         uses: gmiam/rust-musl-action@master
+        env:
+          PYO3_PYTHON: "/usr/bin/python3"
         with:
           args: cargo build --target $BUILD_TARGET --release
 
