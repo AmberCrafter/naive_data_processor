@@ -35,18 +35,19 @@ jobs:
               sudo apt-get install -y protobuf-compiler
               cargo build -r
       
-      - uses: actions/setup-python@v4
-        id: cp310
-        with:
-          python-version: '3.10'
+      # - uses: actions/setup-python@v4
+      #   id: cp310
+      #   with:
+      #     python-version: '3.10'
       # - run: pipx run --python '${{ steps.cp310.outputs.python-path }}' nox --version
 
       - name: Rust MUSL Builder
         uses: gmiam/rust-musl-action@master
         env:
           PYO3_PYTHON:  ${{ steps.cp310.outputs.python-path }}
+          
         with:
-          args: cargo build --target $BUILD_TARGET --release
+          args: RUSTFLAGS="-C target-feature=-crt-static" cargo build --target $BUILD_TARGET --release
 
       - name: Create Release
         id: create_release
