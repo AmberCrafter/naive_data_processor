@@ -35,20 +35,19 @@ jobs:
               sudo apt-get install -y protobuf-compiler
               cargo build -r
       
-      - uses: actions/setup-python@v4
-        id: cp310
-        with:
-          python-version: '3.10'
-      - run: pipx run --python '${{ steps.cp310.outputs.python-path }}' nox --version
+      # - uses: actions/setup-python@v4
+      #   id: cp310
+      #   with:
+      #     python-version: '3.10'
+      # - run: pipx run --python '${{ steps.cp310.outputs.python-path }}' nox --version
 
-      - name: Rust MUSL Builder
-        uses: gmiam/rust-musl-action@master
-        env:
-          RUSTFLAGS: "-C target-feature=-crt-static"
-          # PYO3_PYTHON:  ${{ steps.cp310.outputs.python-path }}
-
-        with:
-          args: cargo build --target $BUILD_TARGET --release
+      # - name: Rust MUSL Builder
+      #   uses: gmiam/rust-musl-action@master
+      #   env:
+      #     RUSTFLAGS: "-C target-feature=-crt-static"
+      #     # PYO3_PYTHON:  ${{ steps.cp310.outputs.python-path }}
+      #   with:
+      #     args: cargo build --target $BUILD_TARGET --release
 
       - name: Create Release
         id: create_release
@@ -71,15 +70,15 @@ jobs:
           asset_name: data_preprocesser
           asset_content_type: application/octet-stream
 
-      - name: Upload MUSL Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./target/x86_64-unknown-linux-musl/release/data_preprocesser
-          asset_name: data_preprocesser
-          asset_content_type: application/octet-stream
+      # - name: Upload MUSL Release Asset
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ./target/x86_64-unknown-linux-musl/release/data_preprocesser
+      #     asset_name: data_preprocesser
+      #     asset_content_type: application/octet-stream
 
       # - name: copy file via ssh password
       #   uses: appleboy/scp-action@v0.1.4
