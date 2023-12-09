@@ -40,6 +40,8 @@ jobs:
         with:
           python-version: '3.10'
       # - run: pipx run --python '${{ steps.cp310.outputs.python-path }}' nox --version
+      - run: echo `python3 --version`
+      - run: find / -name python3 2>/dev/null
 
       - name: Rust MUSL Builder
         uses: gmiam/rust-musl-action@master
